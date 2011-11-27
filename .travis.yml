@@ -4,10 +4,10 @@ before_script:
   - "mkdir -p tmp/pids log"
   - "gem update --system 1.4.1 > /dev/null 2>&1"
   - "sudo apt-get install po4a tango-icon-theme -y > /dev/null 2>&1"
-  - "RAILS_ENV=test rake noosfero:translations:compile --trace > /dev/null"
-  - "RAILS_ENV=test bundle exec rake db:schema:load --trace > /dev/null"
+  - "RAILS_ENV=test rake noosfero:translations:compile > /dev/null 2>&1"
+  - "RAILS_ENV=test bundle exec rake db:schema:load > /dev/null 2>&1"
   - "script/noosfero-plugins enableall"
-  - "RAILS_ENV=test bundle exec rake db:migrate --trace"
+  - "RAILS_ENV=test bundle exec rake db:migrate > /dev/null 2>&1"
 
 script: "RAILS_ENV=test bundle exec rake test"
 
