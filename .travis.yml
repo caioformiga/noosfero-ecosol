@@ -3,3 +3,6 @@ rvm:
   - 1.8.7
 
 env: DB=postgres
+
+notifications:
+  irc: "irc.freenode.org#noosfero"
