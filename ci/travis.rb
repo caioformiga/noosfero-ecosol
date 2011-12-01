@@ -3,16 +3,6 @@
 require 'fileutils'
 include FileUtils
 
-commands = [
-  "cp config/database.yml.travis config/database.yml",
-  "psql -c 'create database myapp_test;' -U postgres",
-  "mkdir -p tmp/pids log",
-  "gem update --system 1.4.1",
-]
-commands.each do |command|
-  system "#{command} > /dev/null 2>&1"
-end
-
-success = system 'RAILS_ENV=test bundle exec rake test'
+success = system "export DISPLAY=:99.0 && bundle exec rake $TEST"
 
 exit(success)
