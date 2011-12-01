@@ -4,7 +4,7 @@ before_script:
   - "mkdir -p tmp/pids log"
   - "gem update --system 1.4.1 > /dev/null 2>&1"
   - "sudo apt-get install po4a tango-icon-theme -y > /dev/null 2>&1"
-  - "RAILS_ENV=test bundle exec rake noosfero:translations:compile > /dev/null 2>&1"
+  - "RAILS_ENV=test rake noosfero:translations:compile > /dev/null 2>&1"
   - "RAILS_ENV=test bundle exec rake db:schema:load > /dev/null 2>&1"
   - "script/noosfero-plugins enableall"
   - "RAILS_ENV=test bundle exec rake db:migrate > /dev/null 2>&1"
@@ -15,11 +15,7 @@ script: ci/travis.rb
 rvm:
   - 1.8.7
 env: 
-  - DB=postgres TEST=test:units
-  - DB=postgres TEST=test:functionals
-  - DB=postgres TEST=test:integration
-  - DB=postgres TEST=test:plugins
-  - DB=postgres TEST=cucumber
+  - DB=postgres
 
 notifications:
   irc: "irc.freenode.org#noosfero"
