@@ -15,12 +15,11 @@ script: "export DISPLAY=:99.0 && bundle exec rake $TEST"
 rvm:
   - 1.8.7
 env: 
-  - DB=postgres
-  - TEST=test:units
-  - TEST=test:functionals
-  - TEST=test:integration
-  - TEST=test:plugins
-  - TEST=cucumber
+  - DB=postgres TEST=test:units
+  - DB=postgres TEST=test:functionals
+  - DB=postgres TEST=test:integration
+  - DB=postgres TEST=test:plugins
+  - DB=postgres TEST=cucumber
 
 notifications:
   irc: "irc.freenode.org#noosfero"
