@@ -1,0 +1,475 @@
+# Inspired by http://railscasts.com/episodes/133-capistrano-tasks
+# See also
+#   http://noosfero.org/Development/InstallSteps
+#   http://articles.slicehost.com/2008/1/18/capistrano-series-configuring-capistrano-1
+
+require 'capistrano_colors'
+
+# Noosfero's environment settings
+set :name, "My environment"
+set :domain, "localhost"
+set :default_locale, "pt"
+set :enabled_plugins, []
+
+# Server access
+set :application, "localhost"
+set :user, "noosfero"
+#set :password, ""
+set :port, 22
+
+# Deploy destination
+set :deploy_to, "/home/#{fetch :user}/rails_app/#{fetch :application}"
+set :deploy_via, :remote_cache
+set :use_sudo, false
+set :keep_releases, 10
+
+# Repository
+set :scm, "git"
+set :repository, "git://gitorious.org/noosfero/noosfero.git"
+set :branch, "master"
+
+# Configuration variables
+set :database_name_prefix, "#{fetch :user}_#{fetch :domain}"
+set :mongrel_port, 3000
+set :mongrel_servers, 4
+set :smtp_tls_support, false
+set :exception_notification, true
+set :apache_conf_path, '/etc/apache2'
+set :rails_env, "production"
+
+default_run_options[:pty] = true # for sudo and environments without tty
+
+# RVM (comment if not using), see http://beginrescueend.com/integration/capistrano
+$:.unshift File.expand_path('./lib', ENV['rvm_path'])
+require "rvm/capistrano"
+set :rvm_gemset, 'noosfero'
+set :rvm_ruby_string, "1.8.7@#{fetch :rvm_gemset}"
+set :rvm_type, :user
+
+# Server(s) configuration, see http://stackoverflow.com/questions/1661868/using-capistrano-to-deploy-a-rails-application-to-multiple-web-servers
+role :app, application
+role :web, application
+role :db, application, :primary => true
+
+namespace :deploy do
+
+  # TODO: make it possible with development environment
+  desc "Start all servers."
+  task :start do
+    run "cd #{current_path}; script/production start"
+  end
+  desc "Stop all servers."
+  task :stop do
+    run "cd #{current_path}; script/production stop"
+  end
+  desc "Restart all servers."
+  task :restart do
+    deploy.migrate
+    run "cd #{current_path}; script/production stop; script/production start"
+  end
+
+  desc "Initial setup (create/load db, setup configs, noosfero env.)."
+  task :setup do
+    deploy.dirs.create
+    deploy.configs.copy
+    deploy.update_code
+    deploy.db.user.create
+    deploy.db.create
+    run "ln -nfs #{release_path} #{current_path}" # deploy:symlink without triggers
+    deploy.db.schema_load
+    deploy.translations.compile
+    deploy.db.data.create_env_and_domain
+    deploy.plugins.enable
+    deploy.migrate
+  end
+
+end
+
+after "deploy:symlink", "configs:symlink"
+after "deploy:symlink", "plugins:enable"
+after "deploy:symlink", "translations:compile"
+after "deploy:symlink", "uploads:symlink"
+after "deploy:update_code", "configs:release_symlink"
+after "deploy:restart", "cache:clear"
+
+namespace :plugins do
+  
+  desc "Enable configured plugin list (and disable others)."
+  task :enable do
+    run "cd #{current_path}; script/noosfero-plugins disableall"
+    fetch(:enabled_plugins).each do |plugin|
+      run "cd #{current_path}; script/noosfero-plugins enable #{plugin}"
+    end
+  end
+
+  desc "Disable configured plugin list."
+  task :disable do
+    fetch(:enabled_plugins).each do |plugin|
+      run "cd #{current_path}; script/noosfero-plugins disable #{plugin}"
+    end
+  end
+
+end
+
+
+# Inpired by http://www.simonecarletti.com/blog/2009/06/capistrano-and-database-yml/
+namespace :configs do
+
+  # You may config inline here or create them at config/deploy
+  configs = {
+    'database.yml' => (<<-EOF
+      base: &base
+        adapter: postgresql
+        encoding: unicode
+        username: #{fetch :user}
+        password:
+      development:
+        database: #{fetch :database_name_prefix, 'noosfero'}_development
+        <<: *base
+      test:
+        database: #{fetch :database_name_prefix, 'noosfero'}_test
+        <<: *base
+      production:
+        database: #{fetch :database_name_prefix, 'noosfero'}_production
+        <<: *base
+    EOF
+    ), 'local.rb' => (<<-EOF
+      Noosfero.default_locale = '#{fetch :default_locale}'
+
+      # Replace with own server, see http://noosfero.org/Development/SMTPMailSending
+      ActionMailer::Base.delivery_method = :test
+    EOF
+    ), 'mongrel_cluster.yml' => (<<-EOF
+      --- 
+      log_file: log/mongrel.log
+      port: #{fetch :mongrel_port, 300}
+      pid_file: tmp/pids/mongrel.pid
+      servers: #{fetch :mongrel_servers, 4}
+    EOF
+    ), 'ferret_server.yml' => (<<-EOF
+      production:
+        host: localhost
+        port: 9011
+        pid_file: tmp/pids/ferret.production.pid
+      development:
+        host: localhost
+        port: 9010
+        pid_file: tmp/pids/ferret.development.pid
+    EOF
+    ), 'noosfero.yml' => (<<-EOF
+      development:
+        mail_enabled: true
+        webmail_url: "http://localhost.localdomain/"
+        addthis_enabled: true
+        addthis_pub: your-user-name
+        addthis_logo: http://localhost:#{fetch :mongrel_port, 3000}/images/logo-200x50.png
+        addthis_options: favorites, email, digg, delicious, technorati, slashdot, twitter, more
+        gravatar: wavatar
+        googlemaps_initial_zoom: 4
+        exception_recipients: [admin@example.com]
+      
+      test:
+      
+      production:
+    EOF
+    ),
+  }
+
+  desc "Copy configuration files for each release."
+  task :copy do
+    run "mkdir -p #{shared_path}/config"
+    configs.each do |file, template|
+      location = "config/deploy/#{file}"
+      config = File.file?(location) ? File.read(location) : template
+      put config, "#{shared_path}/config/#{file}"
+    end
+  end
+
+  desc "Symlink shared config files."
+  task :symlink do
+    configs.keys.each do |file|
+      run "ln -nfs #{shared_path}/config/#{file} #{current_path}/config/#{file}"
+    end
+  end
+
+  desc "Symlink shared config files (for a release)."
+  task :release_symlink do
+    configs.keys.each do |file|
+      run "ln -nfs #{shared_path}/config/#{file} #{release_path}/config/#{file}"
+    end
+  end
+
+end
+
+
+namespace :translations do
+
+  desc "Compile translations for current release."
+  task :compile do
+    run "cd #{current_path}; #{rake} noosfero:translations:compile RAILS_ENV=#{fetch :rails_env}"
+  end
+
+end
+
+
+namespace :db do
+
+  desc "Create database."
+  task :create do
+    run "cd #{shared_path}; createdb `ruby -ryaml -e \"puts YAML.load_file('config/database.yml')['#{fetch :rails_env}']['database']\"`"
+  end
+
+  desc "Drop database (lose all data)."
+  task :drop, :on_error => :continue do
+    run "cd #{shared_path}; dropdb `ruby -ryaml -e \"puts YAML.load_file('config/database.yml')['#{fetch :rails_env}']['database']\"`"
+  end
+
+  # We cannot have schema:load - capistrano blocks lock this task
+  desc "Load schema into database (reset all data)."
+  task :schema_load do
+    run "cd #{current_path}; script/noosfero-plugins disableall" #workaround bug of plugins load in this task
+    run "cd #{current_path}; #{rake} db:schema:load RAILS_ENV=#{fetch :rails_env}"
+  end
+
+  namespace :user do
+
+    desc "Create database user."
+    task :create, :on_error => :continue do
+      sudo "createuser #{fetch :user} -S -d -R", :as => "postgres"
+    end
+
+    desc "Drop database user."
+    task :drop do
+      sudo "dropuser #{fetch :user}", :as => "postgres"
+    end
+
+  end
+
+  namespace :backup do
+
+    desc "Backup database."
+    task :do do
+      run "mkdir -p #{shared_path}/backups"
+      file = "#{Time.now.utc.strftime('%Y%m%d%H%M%S')}.sql"
+      run "cd #{shared_path}; pg_dump `ruby -ryaml -e \"puts YAML.load_file('config/database.yml')['#{fetch :rails_env}']['database']\"` -f backups/#{file}"
+      run "cd #{shared_path}/backups; ln -nfs #{file} newest.sql"
+    end
+
+    desc "Restore database backup (newest version or -s version=DATE)."
+    task :restore do
+      deploy.db.drop
+      deploy.db.create
+      version = 'newest' if version.nil?
+      run "cd #{shared_path}; psql `ruby -ryaml -e \"puts YAML.load_file('config/database.yml')['#{fetch :rails_env}']['database']\"` < #{shared_path}/backups/#{version}.sql"
+    end
+
+    desc "Download newest database backup."
+    task :download_newest do
+      file = ""
+      run("readlink #{shared_path}/backups/newest.sql") { |channel, stream, data| file = data.strip if stream == :out }
+      get "#{shared_path}/backups/#{file}", "#{application}-#{file}"
+    end
+
+    desc "List database backups."
+    task :list do
+      run "ls -l #{shared_path}/backups"
+    end
+    
+  end
+
+  namespace :data do
+
+    # Translations must be done before, so we get template data localized
+    desc "Create default environment and domain, if them don't exist yet."
+    task :create_env_and_domain do
+      run "cd #{current_path}; RAILS_ENV=#{fetch :rails_env} script/runner 'Environment.create!(:name => \"#{fetch :name}\", :is_default => true) if Environment.default.blank?'"
+      run "cd #{current_path}; RAILS_ENV=#{fetch :rails_env} script/runner 'Environment.default.domains << Domain.new(:name => \"#{fetch :domain}\") if Environment.default.domains.blank?'"
+    end
+
+    desc "Populate database with sample data."
+    task :sample_populate do
+      run "cd #{current_path}; RAILS_ENV=#{fetch :rails_env} script/sample-data"
+    end
+
+  end
+
+end
+
+
+# Inspired by
+# http://trevorturk.com/2007/03/25/working-with-attachment_fu/
+# http://www.simonecarletti.com/blog/2009/02/capistrano-uploads-folder/
+namespace :uploads do
+
+  desc "Symlink uploaded files on current release."
+  task :symlink do
+    %w{image_uploads}.each do |share|
+      run "rm -rf #{current_path}/public/#{share}"
+      run "mkdir -p #{shared_path}/system/#{share}"
+      run "ln -nfs #{shared_path}/system/#{share} #{current_path}/public/#{share}"
+    end
+  end
+
+end
+
+
+# See http://noosfero.org/Development/SMTPMailSending for configuration details
+namespace :smtp do
+  desc "Install TLS support for SMTP."
+  task :install_tls_support do
+    run "cd #{current_path}; script/plugin install git://github.com/collectiveidea/action_mailer_optional_tls.git"
+  end
+end
+
+
+namespace :exception_notification do
+  desc "Install exception notification (see noosfero.yml file)."
+  task :install do
+    run "gem install exception_notification -v 1.0.20090728"
+  end
+end
+
+
+namespace :apache do
+
+  site_config = <<-EOF
+    <VirtualHost *:80>
+      ServerName #{fetch :domain}
+
+      DocumentRoot "#{current_path}/public"
+      <Directory "#{current_path}/public">
+        Options FollowSymLinks
+        AllowOverride None
+        Order Allow,Deny
+        Allow from all
+      </Directory>
+
+      RewriteEngine On
+
+      # Rewrite index to check for static index.html
+      RewriteRule ^/$ /index.html [QSA]
+
+      # Rewrite to check for Rails cached page
+      RewriteRule ^([^.]+)$ $1.html [QSA]
+
+      RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_FILENAME} !-f
+      RewriteRule ^.*$ balancer://#{fetch :domain}%{REQUEST_URI} [P,QSA,L]
+
+      ErrorDocument 503 /503.html
+
+      ErrorLog #{shared_path}/log/apache.log
+      LogLevel warn
+      CustomLog #{shared_path}/log/apache.access.log combined
+
+      Include #{current_path}/etc/noosfero/apache/cache.conf
+
+    </VirtualHost>
+
+    <Proxy balancer://#{fetch :domain}>
+      #{fetch(:mongrel_servers, 4).times.map { |i| "BalancerMember http://127.0.0.1:#{fetch(:mongrel_port, 3000)+i}" } * "\n"}
+      Order Allow,Deny
+      Allow from All
+    </Proxy>
+  EOF
+
+  desc "Copy/Enable Apache's VirtualHost config."
+  task :configure do
+    sudo "a2enmod deflate expires proxy proxy_balancer proxy_http rewrite"
+    put site_config, "/tmp/#{fetch :domain}"
+    sudo "mv /tmp/#{fetch :domain} #{fetch :apache_conf_path}/sites-available"
+    deploy.apache.enable_site
+  end
+
+  desc "Enable Apache site (see configure)."
+  task :enable_site do
+    sudo "a2ensite #{fetch :domain}"
+    sudo "invoke-rc.d apache2 restart"
+  end
+end
+
+
+# Inpired by http://dirk.net/2010/07/12/clearing-memcached-at-capistrano-deployment/
+namespace :cache do
+
+  desc "Clear memcached cache."
+  task :clear, :roles => :app do
+    run "cd #{current_path}; RAILS_ENV=#{fetch :rails_env} script/runner 'ActionController::Base.cache_store.clear; Rails.cache.clear;'"
+  end
+
+end
+
+
+namespace :bundle do
+
+  desc "Run bundle install."
+  task :install do
+    run "cd #{current_path}; bundle install"
+  end
+
+end
+
+
+namespace :dependencies do
+
+  desc "Install deps using Debian's Lenny packages."
+  task :lenny_install do
+    sudo "apt-get install ruby rake po4a libgettext-ruby-util libgettext-ruby-data libgettext-ruby1.8 libsqlite3-ruby rcov librmagick-ruby libredcloth-ruby libwill-paginate-ruby iso-codes libfeedparser-ruby libferret-ruby libdaemons-ruby mongrel mongrel-cluster tango-icon-theme libhpricot-ruby libzip-ruby1.8 postgresql libpgsql-ruby"
+  end
+
+  # See http://noosfero.org/Development/RVMGemBasedInstallation
+  desc "Install deps using RVM and bundler."
+  task :rvm_install do
+    self[:default_shell] = "/bin/bash -li" # we don't yet have RVM
+    deploy.dirs.create # needed for a first time
+
+    sudo "apt-get -y install po4a iso-codes tango-icon-theme"
+    sudo "apt-get -y install libmagick9-dev libpq-dev libreadline-dev libsqlite3-dev"
+
+    run "bash < <(curl -s https://raw.github.com/wayneeseguin/rvm/master/binscripts/rvm-installer )"
+    run "echo '[[ -s \"$HOME/.rvm/scripts/rvm\" ]] && source \"$HOME/.rvm/scripts/rvm\"' >> $HOME/.bashrc"
+    run "rvm install 1.8.7"
+    run "rvm use 1.8.7 && rvm gemset create #{fetch :rvm_gemset}"
+    run "rvm 1.8.7@#{fetch :rvm_gemset} && gem update --system 1.4.1"
+    run "rvm 1.8.7@#{fetch :rvm_gemset} && gem install bundler"
+
+    deploy.update_code
+    run "cd #{release_path}; rvm 1.8.7@#{fetch :rvm_gemset} && bundle install"
+  end
+
+end
+
+
+namespace :dirs do
+
+  desc "Create log and tmp dirs."
+  task :create do
+    run "mkdir -p #{fetch :releases_path}"
+    run "mkdir -p #{shared_path}/log"
+    run "mkdir -p #{shared_path}/tmp"
+    run "mkdir -p #{shared_path}/pids"
+  end
+
+end
+
+
+namespace :data do
+
+  desc "Modify this task to sync data."
+  task :sync do
+    system "rsync -vr some data #{user}@#{application}:#{shared_path}/"
+  end
+
+end
+
+
+namespace :extras do
+
+  desc "Install optional extras dependencies."
+  task :install do
+    deploy.exception_notification.install if fetch(:exception_notification, true)
+    deploy.smtp.install_tls_support if fetch(:smtp_tls_support, false)
+  end
+
+end
+
+
