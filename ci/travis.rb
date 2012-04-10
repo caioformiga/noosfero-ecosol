@@ -3,6 +3,6 @@
 require 'fileutils'
 include FileUtils
 
-success = system "export DISPLAY=:99.0 && bundle exec rake test"
+success = system "export DISPLAY=:99.0 && bundle exec rake $TEST"
 
 exit(success)

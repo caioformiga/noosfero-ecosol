@@ -1,21 +1,33 @@
 before_script:
-  - "cp config/database.yml.travis config/database.yml"
-  - "psql -c 'create database myapp_test;' -U postgres"
+# with postgres
+  #- "cp config/database.yml.travis config/database.yml"
+  #- "psql -c 'create database myapp_test;' -U postgres"
+# db and init setup
+  - "cp config/database.yml.sqlite3 config/database.yml"
   - "mkdir -p tmp/pids log"
+# dependencies
   - "gem update --system 1.4.1 > /dev/null 2>&1"
-  - "sudo apt-get install po4a tango-icon-theme -y > /dev/null 2>&1"
+  - "sudo apt-get -y install po4a tango-icon-theme > /dev/null 2>&1"
+# translations and db schema
   - "RAILS_ENV=test rake noosfero:translations:compile > /dev/null 2>&1"
   - "RAILS_ENV=test bundle exec rake db:schema:load > /dev/null 2>&1"
+# enable plugins run their migrations
   - "script/noosfero-plugins enableall"
   - "RAILS_ENV=test bundle exec rake db:migrate > /dev/null 2>&1"
-  - "sh -e /etc/init.d/xvfb start"
+# for selenium
+#  - "sh -e /etc/init.d/xvfb start"
 
 script: ci/travis.rb
 
 rvm:
   - 1.8.7
 env: 
-  - DB=postgres
+  - DB=postgres TEST=test:units
+  - DB=postgres TEST=test:functionals
+  - DB=postgres TEST=test:integration
+  - DB=postgres TEST=cucumber
+  #- DB=postgres TEST=selenium
+  - DB=postgres TEST=test:noosfero_plugins
 
 notifications:
   irc: "irc.freenode.org#noosfero"
