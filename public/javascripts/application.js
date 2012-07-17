@@ -490,7 +490,10 @@ jQuery(function($) {
         }
         $(this).attr('href', new_href);
       });
-      var html = $(this).html().replace(/{login}/g, data.login).replace('{month}', data.since_month).replace('{year}', data.since_year);
+      var html = $(this).html().replace(/{login}/g, data.login)
+        .replace(/{name}/g, data.name)
+        .replace('{month}', data.since_month)
+        .replace('{year}', data.since_year);
       $(this).html(html).fadeIn();
       if (data.is_admin) {
         $('#user .admin-link').show();

@@ -106,9 +106,9 @@ class User < ActiveRecord::Base
   validates_inclusion_of :terms_accepted, :in => [ '1' ], :if => lambda { |u| ! u.terms_of_use.blank? }, :message => N_('%{fn} must be checked in order to signup.').fix_i18n
 
   # Authenticates a user by their login name and unencrypted password.  Returns the user or nil.
-  def self.authenticate(login, password, environment = nil)
+  def self.authenticate(email, password, environment = nil)
     environment ||= Environment.default
-    u = first :conditions => ['login = ? AND environment_id = ? AND activated_at IS NOT NULL', login, environment.id] # need to get the salt
+    u = first :conditions => ['email = ? AND environment_id = ? AND activated_at IS NOT NULL', email, environment.id] # need to get the salt
     u && u.authenticated?(password) ? u : nil
   end
 
@@ -260,6 +260,7 @@ class User < ActiveRecord::Base
     end
     {
       'login' => self.login,
+      'name' => self.person.short_name,
       'is_admin' => self.person.is_admin?,
       'since_month' => self.person.created_at.month,
       'since_year' => self.person.created_at.year,

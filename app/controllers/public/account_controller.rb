@@ -16,7 +16,7 @@ class AccountController < ApplicationController
     @user = User.find_by_activation_code(params[:activation_code]) if params[:activation_code]
     if @user and @user.activate
       @message = _("Your account has been activated, now you can log in!")
-      render :action => 'login', :userlogin => @user.login
+      render :action => 'login', :useremail => @user.email
     else
       session[:notice] = _("It looks like you're trying to activate an account. Perhaps have already activated this account?")
       redirect_to :controller => :home
@@ -29,7 +29,7 @@ class AccountController < ApplicationController
     @person = @user.build_person
     store_location(request.referer) unless session[:return_to]
     return unless request.post?
-    self.current_user = User.authenticate(params[:user][:login], params[:user][:password], environment) if params[:user]
+    self.current_user = User.authenticate(params[:user][:email], params[:user][:password], environment) if params[:user]
     if logged_in?
       if params[:remember_me] == "1"
         self.current_user.remember_me
