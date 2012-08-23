@@ -46,7 +46,7 @@ class BscPlugin < Noosfero::Plugin
   end
 
   def profile_controller_filters
-    if profile 
+    if profile
       special_enterprise = profile.enterprise? && !profile.validated && profile.bsc
       is_member_of_any_bsc = is_member_of_any_bsc?(context.user)
       block = lambda {
@@ -100,7 +100,7 @@ class BscPlugin < Noosfero::Plugin
     properties = []
     properties << { :name => _('Bsc'), :content => lambda { link_to(product.bsc.name, product.bsc.url) } } if product.bsc
     if product.enterprise.validated || is_member_of_any_bsc?(context.user)
-      content = lambda { link_to_homepage(product.enterprise.name, product.enterprise.identifier) }
+      content = lambda { link_to_homepage(product.enterprise.name, product.enterprise) }
     else
       content = lambda { product.enterprise.name }
     end

@@ -7,8 +7,8 @@ class TinyMceArticleTest < ActiveSupport::TestCase
     @profile = create_user('zezinho').person
   end
   attr_reader :profile
-  
-  # this test can be removed when we get real tests for TinyMceArticle 
+
+  # this test can be removed when we get real tests for TinyMceArticle
   should 'be an article' do
     assert_subclass TextArticle, TinyMceArticle
   end
@@ -216,7 +216,7 @@ end
     assert_equal true, a.notifiable?
     assert_equal true, a.advertise?
     assert_equal true, a.is_trackable?
-   
+
     a.published=false
     assert_equal false, a.published?
     assert_equal false, a.is_trackable?
@@ -232,8 +232,9 @@ end
   end
 
   should 'define type facet' do
-	  a = TinyMceArticle.new
-		assert_equal TextArticle.type_name, TinyMceArticle.send(:f_type_proc, a.send(:f_type))
+    a = TinyMceArticle.new
+    assert_equal [[a.send(:f_type), TextArticle.type_name, 1]],
+      TinyMceArticle.send(:f_type_proc, TinyMceArticle.facet_by_id(:f_type), [[a.send(:f_type), 1]])
   end
 
 end

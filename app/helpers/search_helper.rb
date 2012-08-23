@@ -99,7 +99,7 @@ module SearchHelper
     @asset_class = asset_class(asset)
     render(:partial => 'facets_unselect_menu')
   end
-  
+
   def facet_javascript(input_id, facet, array)
     array = [] if array.nil?
     hintText = _('Type in an option')
@@ -139,7 +139,7 @@ module SearchHelper
 
   def facet_selecteds_html_for(environment, klass, params)
     def name_with_extra(klass, facet, value)
-      name = klass.facet_result_name(facet, value)
+      name = klass.facet_result_name(facet, [[value, 0]])
       name = name[0] + name[1] if name.kind_of?(Array)
       name
     end

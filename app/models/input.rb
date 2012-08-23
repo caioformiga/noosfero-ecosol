@@ -1,4 +1,7 @@
 class Input < ActiveRecord::Base
+
+  default_scope :include => [:product_category]
+
   belongs_to :product
   belongs_to :product_category
 

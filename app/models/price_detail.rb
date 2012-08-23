@@ -1,5 +1,7 @@
 class PriceDetail < ActiveRecord::Base
 
+  default_scope :include => [:production_cost]
+
   belongs_to :product
   validates_presence_of :product_id
 
