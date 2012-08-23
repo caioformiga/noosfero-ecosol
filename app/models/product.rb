@@ -213,23 +213,40 @@ class Product < ActiveRecord::Base
   def f_category
     self.product_category.name
   end
+
   def f_region
     self.enterprise.region.id if self.enterprise.region
   end
-  def self.f_region_proc(id)
-    c = Region.find(id)
-    s = c.parent
-    if c and c.kind_of?(City) and s and s.kind_of?(State) and s.acronym
-      [c.name, ', ' + s.acronym]
-    else
-      c.name
+
+  def self.f_region_proc(facet, id_count_arr)
+    ids = id_count_arr.map{ |id, count| id }
+    regs, r = [], Region.find(ids, :include => :parent)
+    ids.each{ |id| regs << r.detect{ |c| c.id == id.to_i} }
+
+    count_hash = Hash[id_count_arr]
+    extend SearchHelper
+    regs.map do |c|
+      [c.id.to_s, city_with_state(c), count_hash[c.id.to_s]]
     end
   end
-  def self.f_qualifier_proc(ids)
-    array = ids.split
-    qualifier = Qualifier.find_by_id array[0]
-    certifier = Certifier.find_by_id array[1]
-    certifier ? [qualifier.name, _(' cert. ') + certifier.name] : qualifier.name
+
+  def self.f_qualifier_proc(facet, id_count_arr)
+    ids, qualis_hash, certs_hash = {}, {}, {}
+    id_count_arr.each do |id, count|
+      array = id.split ' '
+      ids[array[0]] = array[1]
+    end
+    Qualifier.find(ids.keys).each{ |q| qualis_hash[q.id.to_s] = q.name }
+    Certifier.find(ids.values.compact).each{ |c| certs_hash[c.id.to_s] = c.name }
+
+    count_hash = Hash[id_count_arr]
+    ids.map do |qid, cid|
+      id = "#{qid} #{cid}"
+      qualifier = qualis_hash[qid]
+      certifier = certs_hash[cid]
+      name = certifier ? [qualifier, _(' cert. ') + certifier] : qualifier
+      [id, name, count_hash[id]]
+    end
   end
   def f_qualifier
     product_qualifiers.map do |pq|
@@ -255,8 +272,8 @@ class Product < ActiveRecord::Base
 
   acts_as_faceted :fields => {
       :f_category => {:label => _('Related products')},
-      :f_region => {:label => _('City'), :proc => proc { |id| f_region_proc(id) }},
-      :f_qualifier => {:label => _('Qualifiers'), :proc => proc { |id| f_qualifier_proc(id) }},
+      :f_region => {:label => _('City'), :proc => method(:f_region_proc).to_proc},
+      :f_qualifier => {:label => _('Qualifiers'), :proc => method(:f_qualifier_proc).to_proc},
     }, :category_query => proc { |c| "category_filter:#{c.id}" },
     :order => [:f_category, :f_region, :f_qualifier]
 
