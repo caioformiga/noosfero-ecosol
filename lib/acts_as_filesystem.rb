@@ -15,7 +15,7 @@ module ActsAsFileSystem
     # * children_count - a cache of the number of children elements.
     def acts_as_filesystem
       # a filesystem is a tree
-      acts_as_tree :order => 'name', :counter_cache => :children_count
+      acts_as_tree :counter_cache => :children_count
 
       include InstanceMethods
       extend ClassMethods
