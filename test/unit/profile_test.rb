@@ -446,7 +446,7 @@ class ProfileTest < ActiveSupport::TestCase
     TestSolr.enable
     e = fast_create(Enterprise, {:lat => 45, :lng => 45}, :search => true)
 
-    assert_includes Enterprise.find_by_contents('', {}, {:radius => 2, :latitude => 45, :longitude => 45})[:results].docs, e    
+    assert_includes Enterprise.find_by_contents('', {}, {:radius => 2, :latitude => 45, :longitude => 45})[:results].docs, e
   end
 
   should 'have a public profile by default' do
@@ -551,7 +551,7 @@ class ProfileTest < ActiveSupport::TestCase
   should 'categorize in the entire category hierarchy' do
     c1 = fast_create(Category)
     c2 = fast_create(Category, :parent_id => c1.id)
-    c3 = fast_create(Category, :parent_id => c2.id) 
+    c3 = fast_create(Category, :parent_id => c2.id)
 
     profile = create_user('testuser').person
     profile.add_category(c3)
@@ -1064,7 +1064,7 @@ class ProfileTest < ActiveSupport::TestCase
 
   should 'copy header when applying template' do
     template = fast_create(Profile)
-    template[:custom_header] = '{name}' 
+    template[:custom_header] = '{name}'
     template.save!
 
     p = create(Profile, :name => 'test prof')
@@ -1318,7 +1318,7 @@ class ProfileTest < ActiveSupport::TestCase
     task2 = Task.create!(:requestor => person, :target => another)
 
     person.stubs(:is_admin?).with(other).returns(true)
-    Environment.find(:all).select{|i| i != other }.each do |env| 
+    Environment.find(:all).select{|i| i != other }.each do |env|
       person.stubs(:is_admin?).with(env).returns(false)
     end
 
@@ -1731,7 +1731,7 @@ class ProfileTest < ActiveSupport::TestCase
     assert profile.is_on_homepage?("/#{profile.identifier}/#{homepage.slug}", homepage)
   end
 
-  
+
   should 'find profiles with image' do
     env = fast_create(Environment)
     2.times do |n|
@@ -1811,7 +1811,10 @@ class ProfileTest < ActiveSupport::TestCase
     cat = fast_create(Category)
     prof = fast_create(Person, :region_id => city.id)
     prof.add_category(cat, true)
-    assert_equal ['Tabajara', ', XZ'], Profile.facet_by_id(:f_region)[:proc].call(prof.send(:f_region))
+
+    facet = Profile.facet_by_id(:f_region)
+    assert_equal [[city.id.to_s, 'Tabajara, XZ', 1]], facet[:proc].call(facet, [[prof.send(:f_region), 1]])
+
     assert_equal "category_filter:#{cat.id}", Person.facet_category_query.call(cat)
   end
 

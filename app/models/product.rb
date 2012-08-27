@@ -215,19 +215,11 @@ class Product < ActiveRecord::Base
   end
 
   def f_region
-    self.enterprise.region.id if self.enterprise.region
+    self.enterprise.region_id.to_s
   end
 
-  def self.f_region_proc(facet, id_count_arr)
-    ids = id_count_arr.map{ |id, count| id }
-    regs, r = [], Region.find(ids, :include => :parent)
-    ids.each{ |id| regs << r.detect{ |c| c.id == id.to_i} }
-
-    count_hash = Hash[id_count_arr]
-    extend SearchHelper
-    regs.map do |c|
-      [c.id.to_s, city_with_state(c), count_hash[c.id.to_s]]
-    end
+  def self.f_region_proc(*args)
+    Profile.f_region_proc *args
   end
 
   def self.f_qualifier_proc(facet, id_count_arr)

@@ -580,10 +580,10 @@ class ProductTest < ActiveSupport::TestCase
     assert_equal 'Related products', Product.facet_by_id(:f_category)[:label]
 
     facet = Product.facet_by_id(:f_region)
-    assert_equal [[p.region.id.to_s, 'Tabajara, XZ', nil]], facet[:proc].call(facet, [[p.send(:f_region), 1]])
+    assert_equal [[p.region.id.to_s, 'Tabajara, XZ', 1]], facet[:proc].call(facet, [[p.send(:f_region), 1]])
     facet = Product.facet_by_id(:f_qualifier)
     assert_equal [["#{pq.qualifier.id} #{pq.certifier.id}", ["qualifier", " cert. certifier"], 1]],
-                 facet[:proc].call(facet, [[p.send(:f_qualifier).last, 1]])
+                 facet[:proc].call(facet, [[p.send(:f_qualifier).first, 1]])
 
     assert_equal 'hardcore', p.send(:f_category)
     assert_equal "category_filter:#{cat.id}", Product.facet_category_query.call(cat)

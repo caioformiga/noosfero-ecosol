@@ -74,6 +74,19 @@ class PerformanceTest < ActionController::IntegrationTest
     assert (time2 - time0) < time0*0.5
   end
 
+  should 'not have a linear increase when searching products' do
+    enterprise0 = Enterprise.create!(:name => 'mysql', :identifier => 'enterprise0')
+    enterprise1 = Enterprise.create!(:name => 'postgres', :identifier => 'enterprise1')
+
+    create_products(enterprise0, 10)
+    create_products(enterprise1, 20)
+
+    time0 = Benchmark.measure{ 10.times { get 'search/products?query=mysql' } }.total
+    time1 = Benchmark.measure{ 10.times { get 'search/products?query=postgres' } }.total
+
+    assert (time1 - time0) < time0*0.5
+  end
+
   protected
 
   def create_profile(name)

@@ -198,7 +198,7 @@ class SearchHelperTest < ActiveSupport::TestCase
     klass = mock
     klass.stubs(:facet_by_id).with(:facet_id).returns('klass_facet_by_id')
     klass.stubs(:facet_label).with('klass_facet_by_id').returns('klass_facet_label')
-    klass.stubs(:facet_result_name).with('klass_facet_by_id', [['facet_value', 0]]).returns('klass_facet_result_name')
+    klass.stubs(:facet_result_name).with('klass_facet_by_id', [['facet_value', 0]]).returns([['klass_facet_result_name']])
     params = {:facet => {:facet_id => 'facet_value'}}
 
     expects(:content_tag).with(anything, 'klass_facet_label', anything).returns('<content_tag_label>')

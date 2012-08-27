@@ -891,7 +891,7 @@ private :generate_url, :url_options
   end
 
   def f_region
-    self.region_id
+    self.region_id.to_s
   end
   def self.f_region_proc(facet, id_count_arr)
     ids = id_count_arr.map{ |id, count| id }
