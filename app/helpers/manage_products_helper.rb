@@ -173,7 +173,7 @@ module ManageProductsHelper
 
   def display_value(product)
     price = product.price
-    return '' if price.blank? || price.zero?
+    return _('Price not informed') if price.blank? || price.zero?
     discount = product.discount
     if discount.blank? || discount.zero?
       result = display_price(_('Price: '), price)

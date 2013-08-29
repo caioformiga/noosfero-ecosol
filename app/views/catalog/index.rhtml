@@ -53,18 +53,21 @@
         <li class="product-link"><%= link_to_product product %></li>
 
         <li class="product-price-line">
+        <% if product.price.nil? || product.price.zero? %>
+          <span class="product-price"> <%= _('Prince not informed')  %>
+          </span>
+          <% else %>
           <% unless product.discount.blank? or product.discount == 0 %>
             <span class="product-discount">
               <span><%= _('from ') + price_span(product.price) %></span>
               <span class="product-discount-by"><%= _('by ') %></span>
             </span>
           <% end %>
-          <% unless product.price.blank? or product.price == 0 %>
             <span class="product-price">
               <%= price_span product.price_with_discount, :class => "product-price #{'with-discount' unless product.discount}" %>
               <span class="product-unit"><%= _(' / ') + (product.unit ? product.unit.singular : _('unit')) %></span>
             </span>
-          <% end %>
+        <% end %>
           <div style="clear: both"></div>
         </li>
 

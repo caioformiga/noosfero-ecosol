@@ -33,7 +33,7 @@ class Product < ActiveRecord::Base
   validates_presence_of :product_category_id
   validates_associated :product_category
 
-  validates_numericality_of :price, :allow_nil => true
+  validates_numericality_of :price, :allow_nil => true, :greater_than => 0
   validates_numericality_of :discount, :allow_nil => true
 
   named_scope :more_recent, :order => "created_at DESC"

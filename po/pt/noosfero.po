@@ -3838,6 +3838,11 @@ msgstr "Informações e Configurações da Comunidade"
 msgid "Change category"
 msgstr "Alterar categoria"
 
+#: app/helpers/manage_products_helper.rb:176
+#: app/views/catalog/index.rhtml:53
+msgid "Price not informed"
+msgstr "Preço não informado"
+
 #: app/helpers/manage_products_helper.rb:179
 msgid "Price: "
 msgstr "Preço:"
